@@ -1,0 +1,435 @@
+// AppZex multi-tenant agency project management schema.
+//
+// Tenant rule: every operational record carries `agencyId`. Services always
+// scope queries with the agencyId derived from the authenticated session,
+// never from request input.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  AGENCY_ADMIN
+  AGENCY_MEMBER
+  CLIENT
+}
+
+enum AgencyStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AgencyPlan {
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum FeedbackStatus {
+  OPEN
+  IN_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  DECLINED
+}
+
+enum ActorType {
+  USER
+  SUPER_ADMIN
+  SYSTEM
+}
+
+enum ActivityVisibility {
+  INTERNAL
+  CLIENT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String    @db.VarChar(120)
+  email        String    @unique @db.VarChar(191)
+  passwordHash String    @db.VarChar(255)
+  role         Role
+  isActive     Boolean   @default(true)
+  /// Bumped on logout / password change to revoke every issued JWT.
+  tokenVersion Int       @default(0)
+  /// Only set for CLIENT users: the client company they belong to.
+  clientId     String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  client           Client?           @relation(fields: [clientId], references: [id])
+  membership       AgencyMember?
+  ownedAgency      Agency?           @relation("AgencyOwner")
+  managedProjects  Project[]         @relation("ProjectManager")
+  assignedTasks    Task[]            @relation("TaskAssignee")
+  createdTasks     Task[]            @relation("TaskCreator")
+  taskComments     TaskComment[]
+  meetings         Meeting[]
+  feedback         Feedback[]
+  feedbackComments FeedbackComment[]
+  files            ProjectFile[]
+  activities       ActivityLog[]
+  supportSessions  SupportSession[]
+
+  @@index([role])
+  @@index([clientId])
+  @@map("users")
+}
+
+model Agency {
+  id           String       @id @default(cuid())
+  name         String       @db.VarChar(120)
+  slug         String       @unique @db.VarChar(120)
+  ownerId      String?      @unique
+  contactEmail String       @db.VarChar(191)
+  phone        String?      @db.VarChar(40)
+  website      String?      @db.VarChar(191)
+  status       AgencyStatus @default(ACTIVE)
+  plan         AgencyPlan   @default(STARTER)
+  suspendedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  owner            User?             @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members          AgencyMember[]
+  clients          Client[]
+  projects         Project[]
+  milestones       Milestone[]
+  tasks            Task[]
+  taskComments     TaskComment[]
+  meetings         Meeting[]
+  feedback         Feedback[]
+  feedbackComments FeedbackComment[]
+  files            ProjectFile[]
+  activities       ActivityLog[]
+  supportSessions  SupportSession[]
+
+  @@index([status])
+  @@index([plan])
+  @@index([createdAt])
+  @@index([name])
+  @@map("agencies")
+}
+
+/// Explicit link between an agency and its internal team members.
+/// MVP rule: one agency per user (userId is unique). The authoritative role
+/// lives on User.role so RBAC checks have a single source of truth.
+model AgencyMember {
+  id        String   @id @default(cuid())
+  agencyId  String
+  userId    String   @unique
+  jobTitle  String?  @db.VarChar(120)
+  createdAt DateTime @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@map("agency_members")
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  agencyId      String
+  companyName   String    @db.VarChar(160)
+  contactName   String?   @db.VarChar(120)
+  email         String?   @db.VarChar(191)
+  phone         String?   @db.VarChar(40)
+  notes         String?   @db.Text
+  portalEnabled Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agency   Agency    @relation(fields: [agencyId], references: [id])
+  projects Project[]
+  users    User[]
+
+  @@index([agencyId, deletedAt])
+  @@index([agencyId, companyName])
+  @@index([createdAt])
+  @@map("clients")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  agencyId    String
+  clientId    String
+  name        String        @db.VarChar(160)
+  description String?       @db.Text
+  startDate   DateTime?     @db.Date
+  dueDate     DateTime?     @db.Date
+  status      ProjectStatus @default(ACTIVE)
+  priority    Priority      @default(MEDIUM)
+  managerId   String?
+  completedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  agency     Agency        @relation(fields: [agencyId], references: [id])
+  client     Client        @relation(fields: [clientId], references: [id])
+  manager    User?         @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  milestones Milestone[]
+  tasks      Task[]
+  meetings   Meeting[]
+  feedback   Feedback[]
+  files      ProjectFile[]
+  activities ActivityLog[]
+
+  @@index([agencyId, status])
+  @@index([agencyId, dueDate])
+  @@index([agencyId, createdAt])
+  @@index([agencyId, deletedAt])
+  @@index([clientId])
+  @@index([managerId])
+  @@map("projects")
+}
+
+model Milestone {
+  id          String          @id @default(cuid())
+  agencyId    String
+  projectId   String
+  name        String          @db.VarChar(160)
+  description String?         @db.Text
+  dueDate     DateTime?       @db.Date
+  status      MilestoneStatus @default(PENDING)
+  order       Int             @default(0)
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  agency  Agency  @relation(fields: [agencyId], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([agencyId, dueDate])
+  @@index([projectId, order])
+  @@index([status])
+  @@map("milestones")
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  agencyId      String
+  projectId     String
+  milestoneId   String?
+  title         String     @db.VarChar(200)
+  description   String?    @db.Text
+  assigneeId    String?
+  createdById   String?
+  status        TaskStatus @default(TODO)
+  priority      Priority   @default(MEDIUM)
+  dueDate       DateTime?  @db.Date
+  /// When true the task is shown to the client (e.g. "Approve homepage design").
+  clientVisible Boolean    @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  agency    Agency        @relation(fields: [agencyId], references: [id])
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignee  User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User?         @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  comments  TaskComment[]
+  files     ProjectFile[]
+
+  @@index([agencyId, status])
+  @@index([agencyId, dueDate])
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([milestoneId])
+  @@index([createdAt])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  agencyId  String
+  taskId    String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([agencyId])
+  @@index([taskId, createdAt])
+  @@index([userId])
+  @@map("task_comments")
+}
+
+model Meeting {
+  id            String   @id @default(cuid())
+  agencyId      String
+  projectId     String
+  title         String   @db.VarChar(200)
+  meetingDate   DateTime
+  /// Raw internal notes. Never exposed to client users.
+  notes         String?  @db.Text
+  /// Reviewed summary. Shown to the client when clientVisible is true.
+  summary       String?  @db.Text
+  clientVisible Boolean  @default(false)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  agency    Agency  @relation(fields: [agencyId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, meetingDate])
+  @@index([projectId, meetingDate])
+  @@map("meetings")
+}
+
+model Feedback {
+  id            String         @id @default(cuid())
+  agencyId      String
+  projectId     String
+  title         String         @db.VarChar(200)
+  description   String         @db.Text
+  submittedById String
+  status        FeedbackStatus @default(OPEN)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  agency      Agency            @relation(fields: [agencyId], references: [id])
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submittedBy User              @relation(fields: [submittedById], references: [id])
+  comments    FeedbackComment[]
+  files       ProjectFile[]
+
+  @@index([agencyId, status])
+  @@index([projectId, status])
+  @@index([submittedById])
+  @@index([createdAt])
+  @@map("feedback")
+}
+
+model FeedbackComment {
+  id         String   @id @default(cuid())
+  agencyId   String
+  feedbackId String
+  userId     String
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  agency   Agency   @relation(fields: [agencyId], references: [id])
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([agencyId])
+  @@index([feedbackId, createdAt])
+  @@index([userId])
+  @@map("feedback_comments")
+}
+
+/// Uploaded file metadata. The binary lives in private storage keyed by
+/// `storageName`; it is only ever served through the authorized download API.
+model ProjectFile {
+  id            String   @id @default(cuid())
+  agencyId      String
+  projectId     String
+  taskId        String?
+  feedbackId    String?
+  uploadedById  String
+  originalName  String   @db.VarChar(255)
+  storageName   String   @unique @db.VarChar(191)
+  mimeType      String   @db.VarChar(120)
+  size          Int
+  clientVisible Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  agency     Agency    @relation(fields: [agencyId], references: [id])
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  feedback   Feedback? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([agencyId, createdAt])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([feedbackId])
+  @@map("files")
+}
+
+/// Append-only audit/activity stream. Designed so notifications can be fanned
+/// out from it later (visibility decides who may see an event).
+model ActivityLog {
+  id         String             @id @default(cuid())
+  agencyId   String?
+  projectId  String?
+  actorId    String?
+  actorType  ActorType
+  eventType  String             @db.VarChar(80)
+  entityType String             @db.VarChar(60)
+  entityId   String?            @db.VarChar(191)
+  visibility ActivityVisibility @default(INTERNAL)
+  metadata   Json?
+  createdAt  DateTime           @default(now())
+
+  agency  Agency?  @relation(fields: [agencyId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+  actor   User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([actorId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model SupportSession {
+  id           String    @id @default(cuid())
+  superAdminId String
+  agencyId     String
+  reason       String?   @db.VarChar(255)
+  startedAt    DateTime  @default(now())
+  expiresAt    DateTime
+  endedAt      DateTime?
+
+  superAdmin User   @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  agency     Agency @relation(fields: [agencyId], references: [id])
+
+  @@index([superAdminId, endedAt])
+  @@index([agencyId, startedAt])
+  @@map("support_sessions")
+}
