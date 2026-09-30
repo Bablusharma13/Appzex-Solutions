@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Each experience sets its own accent through a data-portal
+ * attribute so Super Admin, Agency Workspace and Client Portal feel distinct
+ * while sharing one component library.
+ */
+:root {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #2563eb;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eff6ff;
+  --primary-soft-foreground: #1d4ed8;
+
+  --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
+  --success: #059669;
+  --warning: #d97706;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
+  --sidebar-muted: #64748b;
+  --sidebar-active: #eff6ff;
+  --sidebar-active-foreground: #1d4ed8;
+  --sidebar-border: #e2e8f0;
+}
+
+[data-portal='admin'] {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-soft: #f5f3ff;
+  --primary-soft-foreground: #6d28d9;
+  --ring: #7c3aed;
+  --sidebar: #0b1020;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-muted: #7c8aa5;
+  --sidebar-active: #1e1b4b;
+  --sidebar-active-foreground: #ede9fe;
+  --sidebar-border: #1e293b;
+}
+
+[data-portal='client'] {
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-soft: #f0fdfa;
+  --primary-soft-foreground: #0f766e;
+  --ring: #0d9488;
+  --background: #f6f8f8;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
+
+@keyframes appzex-pulse-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.animate-progress-indeterminate {
+  animation: appzex-pulse-bar 1.4s ease-in-out infinite;
+}
