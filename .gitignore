@@ -1,0 +1,6 @@
+# OS / editor files (application ignores live in appzex-saas/.gitignore)
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
