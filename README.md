@@ -18,16 +18,24 @@ The application lives in [`appzex-saas/`](appzex-saas):
 
 ## Quick start
 
+One command per line, so it works in bash, zsh and Windows PowerShell 5.1 (which doesn't support `&&`):
+
 ```bash
 cd appzex-saas
 docker compose -f docker/docker-compose.yml up -d mysql
 
-cd backend && cp .env.example .env    # set JWT_SECRET
-npm install && npx prisma migrate dev && npx prisma db seed && npm run dev
+cd backend
+cp .env.example .env        # then set JWT_SECRET in .env
+npm install
+npx prisma migrate dev
+npx prisma db seed
+npm run dev                 # API on http://localhost:5000
 
-# second terminal
-cd appzex-saas/frontend && cp .env.example .env.local
-npm install && npm run dev            # http://localhost:3000
+# second terminal, from the repository root
+cd appzex-saas/frontend
+cp .env.example .env.local
+npm install
+npm run dev                 # app on http://localhost:3000
 ```
 
 All demo accounts use the password **`Demo@12345`**. For example: `superadmin@appzex-demo.com`, `agencyadmin@brightwave-demo.com`, `client@acme-demo.com`. The full list is in the app README.
