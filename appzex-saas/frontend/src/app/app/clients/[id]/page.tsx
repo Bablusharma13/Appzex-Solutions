@@ -1,15 +1,17 @@
 'use client';
 
-import { Building2, FolderKanban, Lock, Mail, Pencil, Phone, Plus, Trash2, User, UserPlus } from 'lucide-react';
+import { Building2, FolderKanban, History, Lock, Mail, Pencil, Phone, Plus, Trash2, User, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PriorityBadge, ProjectStatusBadge } from '@/components/shared/badges';
+import { ActivityTimeline } from '@/components/shared/activity-timeline';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { PageHeader } from '@/components/shared/page-header';
+import { Pagination } from '@/components/shared/pagination';
 import { ProjectProgress } from '@/components/shared/progress-bar';
-import { DetailSkeleton, EmptyState, ErrorState } from '@/components/shared/states';
+import { DetailSkeleton, EmptyState, ErrorState, ListSkeleton } from '@/components/shared/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +20,7 @@ import { ClientFormDialog } from '@/features/clients/client-form-dialog';
 import { PortalUserDialog } from '@/features/clients/portal-user-dialog';
 import { ProjectFormDialog } from '@/features/projects/project-form-dialog';
 import { usePermissions } from '@/hooks/use-auth';
-import { useClient, useDeleteClient } from '@/hooks/use-clients';
+import { useClient, useClientActivity, useDeleteClient } from '@/hooks/use-clients';
 import { ApiError } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
 
@@ -32,6 +34,17 @@ export default function ClientDetailPage() {
   const [portalOpen, setPortalOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activityPage, setActivityPage] = useState(1);
+  const {
+    data: activity,
+    isLoading: activityLoading,
+    isError: activityError,
+    error: activityErrorDetail,
+    refetch: refetchActivity,
+  } = useClientActivity(id, { page: activityPage, pageSize: 10 });
+  // Support mode blocks writes but the read-only timeline still renders, so a
+  // failing activity query must not take the rest of the page down with it.
+  void activityErrorDetail;
 
   if (isError) {
     if (error instanceof ApiError && error.status === 404) {
@@ -154,6 +167,30 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Activity</CardTitle>
+            <CardDescription>Everything that has happened on this client&apos;s projects.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activityError ? (
+              <ErrorState error={activityError} onRetry={() => refetchActivity()} />
+            ) : activityLoading || !activity ? (
+              <ListSkeleton rows={5} />
+            ) : activity.items.length === 0 ? (
+              <EmptyState icon={History} title="No activity yet" compact />
+            ) : (
+              <div className="space-y-5">
+                <ActivityTimeline
+                  items={activity.items}
+                  projectHref={(projectId) => `/app/projects/${projectId}`}
+                />
+                <Pagination pagination={activity.pagination} onPageChange={setActivityPage} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="lg:col-span-2">
           <CardHeader>

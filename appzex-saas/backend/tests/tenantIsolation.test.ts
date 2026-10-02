@@ -169,4 +169,30 @@ describe('Agency tenant isolation', () => {
       .send({ title: 'Wrong milestone', milestoneId: seoMilestone.id });
     expect(res.status).toBe(422);
   });
+
+  it('scopes the client activity timeline to that client only', async () => {
+    const acme = await prisma.client.findFirstOrThrow({ where: { companyName: 'Acme Corporation' } });
+    const res = await brightwave.get(`/api/clients/${acme.id}/activity?pageSize=100`);
+    expect(res.status).toBe(200);
+
+    const items = res.body.data.items as { project: { name: string } | null }[];
+    expect(items.length).toBeGreaterThan(0);
+    // Every project named in the timeline must be an Acme project.
+    const projectNames = [...new Set(items.map((item) => item.project?.name).filter(Boolean))];
+    expect(projectNames).toContain('Website Redesign');
+    for (const foreign of ['Brand Identity', 'Marketing Website']) {
+      expect(projectNames).not.toContain(foreign);
+    }
+
+    const serialized = JSON.stringify(res.body);
+    for (const leak of ['Globex', 'NorthStar', 'Initech', 'Daniel Okafor']) {
+      expect(serialized).not.toContain(leak);
+    }
+  });
+
+  it('cannot read another agency client activity timeline', async () => {
+    const globex = await prisma.client.findFirstOrThrow({ where: { companyName: 'Globex Industries' } });
+    const res = await brightwave.get(`/api/clients/${globex.id}/activity`);
+    expectDenied(res.status);
+  });
 });

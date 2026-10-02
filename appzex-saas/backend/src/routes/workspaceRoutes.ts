@@ -36,6 +36,7 @@ workspaceRoutes.post('/clients', requireAgencyAdmin, clientController.create);
 workspaceRoutes.get('/clients/:id', clientController.get);
 workspaceRoutes.patch('/clients/:id', requireAgencyAdmin, clientController.update);
 workspaceRoutes.delete('/clients/:id', requireAgencyAdmin, clientController.remove);
+workspaceRoutes.get('/clients/:id/activity', clientController.activity);
 workspaceRoutes.post('/clients/:id/portal-users', requireAgencyAdmin, clientController.createPortalUser);
 
 // Projects

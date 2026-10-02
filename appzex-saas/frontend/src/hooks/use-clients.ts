@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { type QueryParams, apiClient } from '@/lib/api';
 import { invalidate } from '@/lib/invalidate';
 import { queryKeys } from '@/lib/query-keys';
-import type { ClientDetail, ClientListItem, Paginated, PortalUser } from '@/lib/types';
+import type { Activity, ClientDetail, ClientListItem, Paginated, PortalUser } from '@/lib/types';
 
 export interface ClientInput {
   companyName: string;
@@ -62,5 +62,15 @@ export function useCreatePortalUser(clientId: string) {
     mutationFn: (input: { name: string; email: string; password: string }) =>
       apiClient.post<PortalUser>(`/clients/${clientId}/portal-users`, input),
     onSuccess: () => invalidate(queryClient, 'clients', 'activity'),
+  });
+}
+
+/** Client-specific timeline: events on this client's projects plus client-level events. */
+export function useClientActivity(id: string, params: QueryParams) {
+  return useQuery({
+    queryKey: queryKeys.clients.activity(id, params),
+    queryFn: () => apiClient.get<Paginated<Activity>>(`/clients/${id}/activity`, params),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(id),
   });
 }

@@ -20,6 +20,7 @@ export const queryKeys = {
     all: ['clients'] as const,
     list: (params: QueryParams) => ['clients', 'list', params] as const,
     detail: (id: string) => ['clients', 'detail', id] as const,
+    activity: (id: string, params: QueryParams) => ['clients', 'activity', id, params] as const,
   },
 
   projects: {

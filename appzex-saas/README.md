@@ -69,7 +69,7 @@ Every operational row carries an `agencyId`. The backend always takes that `agen
 
 **Agency Workspace**
 - Dashboard with live stats (clients, active projects, projects due in 14 days, completed projects, pending feedback, overdue tasks), charts (project progress, project status, task status), upcoming work, upcoming milestones and activity.
-- Clients: create, edit, view, delete (blocked while the client still has projects), internal notes and portal-user invitations.
+- Clients: create, edit, view, delete (blocked while the client still has projects), internal notes, portal-user invitations, and a client-specific activity timeline.
 - Projects: create, edit, change status, soft delete, filters, sorting and pagination. Progress is derived from tasks, never typed in.
 - Milestones: ordered phases with status and per-milestone task progress. Standard milestones can be added automatically.
 - Tasks: assignee, priority, due date, milestone and a "client visible" flag. One-click completion updates progress. Cross-project task list with Overdue / Due today / Due this week / Completed buckets, filters and a "My tasks" toggle. Internal comments.
@@ -453,7 +453,7 @@ Base URL `http://localhost:5000/api`. State-changing requests need the `X-Reques
 | Auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` | public / authenticated |
 | Super admin | `GET /super-admin/dashboard` · `GET, POST /super-admin/agencies` · `GET /super-admin/agencies/:id` · `PATCH /super-admin/agencies/:id/status` · `POST /super-admin/agencies/:id/support-session` · `POST /super-admin/support-session/:id/end` | SUPER_ADMIN |
 | Workspace | `GET /dashboard` · `GET, PATCH /agency` · `GET, POST /team` · `GET /activity` | agency (writes: admin) |
-| Clients | `GET, POST /clients` · `GET, PATCH, DELETE /clients/:id` · `POST /clients/:id/portal-users` | agency (writes: admin) |
+| Clients | `GET, POST /clients` · `GET, PATCH, DELETE /clients/:id` · `GET /clients/:id/activity` · `POST /clients/:id/portal-users` | agency (writes: admin) |
 | Projects | `GET, POST /projects` · `GET, PATCH, DELETE /projects/:id` · `GET /projects/:id/health` · `GET /projects/:id/activity` | agency (delete: admin) |
 | Milestones | `GET, POST /projects/:projectId/milestones` · `PATCH, DELETE /milestones/:id` | agency |
 | Tasks | `GET /tasks` · `GET /tasks/summary` · `GET, POST /projects/:projectId/tasks` · `GET, PATCH, DELETE /tasks/:id` · `GET, POST /tasks/:taskId/comments` | agency |

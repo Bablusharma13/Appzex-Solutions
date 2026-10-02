@@ -1,5 +1,6 @@
 import type { ActivityVisibility, ActorType, Prisma } from '@prisma/client';
 import { prisma, type TransactionClient } from '../config/prisma';
+import { clientScopedActivity } from '../repositories/scopes';
 import { paginate, toSkipTake } from '../utils/pagination';
 
 export interface Actor {
@@ -64,6 +65,30 @@ export async function listAgencyActivity(agencyId: string, query: ActivityListQu
   const where: Prisma.ActivityLogWhereInput = {
     agencyId,
     ...(query.projectId ? { projectId: query.projectId } : {}),
+    ...(query.entityType ? { entityType: query.entityType } : {}),
+    ...(query.visibility ? { visibility: query.visibility } : {}),
+  };
+  const [items, total] = await Promise.all([
+    prisma.activityLog.findMany({
+      where,
+      select: activitySelect,
+      orderBy: { createdAt: 'desc' },
+      ...toSkipTake(query.page, query.pageSize),
+    }),
+    prisma.activityLog.count({ where }),
+  ]);
+  return paginate(items, total, query.page, query.pageSize);
+}
+
+/**
+ * Timeline scoped to a single client company: events on that client's projects,
+ * plus events about the client record itself. The agencyId comes from the
+ * session and the client id is verified against that agency before this runs, so
+ * the two conditions together cannot return another tenant's rows.
+ */
+export async function listClientActivity(agencyId: string, clientId: string, query: ActivityListQuery) {
+  const where: Prisma.ActivityLogWhereInput = {
+    ...clientScopedActivity(agencyId, clientId),
     ...(query.entityType ? { entityType: query.entityType } : {}),
     ...(query.visibility ? { visibility: query.visibility } : {}),
   };

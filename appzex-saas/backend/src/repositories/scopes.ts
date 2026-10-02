@@ -42,6 +42,19 @@ export const agencyFiles = (agencyId: string): Prisma.ProjectFileWhereInput => (
   project: { deletedAt: null },
 });
 
+/**
+ * Activity for one client company inside an agency workspace.
+ *
+ * Derived from the caller's agency plus the client's own projects, so a client
+ * id from another tenant can never widen the result set: it only ever narrows
+ * it. Client-level events (the client record itself, its portal users) carry no
+ * projectId, so they are matched explicitly rather than dropped.
+ */
+export const clientScopedActivity = (agencyId: string, clientId: string): Prisma.ActivityLogWhereInput => ({
+  agencyId,
+  OR: [{ project: { clientId, deletedAt: null } }, { entityType: 'client', entityId: clientId }],
+});
+
 // ----- Client portal ----------------------------------------------------------
 // Clients are scoped by agency AND by their own client company, and only see
 // records the agency explicitly marked as client-visible.
